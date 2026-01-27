@@ -1,5 +1,5 @@
 {
-  "name": "claude-tracker",
+  "name": "claude-time-tracker",
   "version": "1.0.0",
   "description": "CLI tool that auto-tracks Claude Code sessions, stores them in SQLite + Airtable, summarizes via Claude API, and emails reports via Resend",
   "type": "module",
@@ -7,11 +7,27 @@
   "bin": {
     "claude-tracker": "dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andysantamaria0/claude-time-tracker.git"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "time-tracking",
+    "session-tracker",
+    "cli"
+  ],
+  "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "airtable": "^0.12.2",
