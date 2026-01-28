@@ -23,6 +23,14 @@ export interface TrackerConfig {
     fromEmail?: string;
   };
   anthropicApiKey?: string;
+  schedule?: {
+    weeklyEmail: {
+      enabled: boolean;
+      dayOfWeek: number;  // 0 = Sunday
+      hour: number;       // 24-hour format
+      minute: number;
+    };
+  };
 }
 
 const CONFIG_DIR = join(homedir(), '.claude-tracker');
