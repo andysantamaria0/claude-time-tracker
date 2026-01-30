@@ -16,6 +16,7 @@ export interface PromptContext {
   gitContext: GitContext;
   conversationAnalysis?: ConversationAnalysis;
   suggestions?: FeatureSuggestion[];
+  defaultNote?: string;
 }
 
 export async function promptForFeature(ctx: PromptContext): Promise<PromptResult> {
@@ -43,16 +44,30 @@ export async function promptForFeature(ctx: PromptContext): Promise<PromptResult
   const choices = buildFeatureChoices(ctx);
 
   if (choices.length === 0) {
-    // No suggestions, just ask for input
+    // No suggestions, just ask for input (pre-fill with defaultNote if available)
     const { feature } = await inquirer.prompt<{ feature: string }>([
       {
         type: 'input',
         name: 'feature',
         message: 'What did you work on?',
+        default: ctx.defaultNote || undefined,
         validate: (input: string) => input.trim().length > 0 || 'Please describe what you worked on',
       },
     ]);
     return { feature: feature.trim() };
+  }
+
+  // Insert defaultNote as the top choice if present
+  if (ctx.defaultNote) {
+    const noteValue = ctx.defaultNote;
+    const lower = noteValue.toLowerCase();
+    // Remove duplicate if it already appears in suggestions
+    const filtered = choices.filter(c => c.value.toLowerCase() !== lower);
+    choices.length = 0;
+    choices.push(
+      { name: `  ${chalk.cyan('[note]')} ${noteValue}`, value: noteValue },
+      ...filtered,
+    );
   }
 
   // Add custom input option

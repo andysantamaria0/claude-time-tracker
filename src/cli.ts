@@ -9,6 +9,7 @@ import { sendReportEmail } from './email/resend.js';
 import { buildReportHtml } from './email/template.js';
 import { runInit } from './init.js';
 import { loadConfig } from './config.js';
+import { setNote, getActiveSession } from './active-session-store.js';
 import { sendWeeklySummary } from './scheduler/weekly-email.js';
 import {
   installLaunchdJob,
@@ -47,6 +48,23 @@ export function createCli(): Command {
     .description('Manually end the current session')
     .action(async () => {
       await stopSession();
+    });
+
+  // note command
+  program
+    .command('note')
+    .description('Attach a note to the active session in this project')
+    .argument('<text>', 'Note describing what you are working on')
+    .action((text: string) => {
+      const cwd = process.cwd();
+      const entry = getActiveSession(cwd);
+      if (!entry) {
+        logger.error('No active session found for this directory');
+        logger.dim('Start a session first with `claude-tracker start`');
+        process.exit(1);
+      }
+      setNote(cwd, text);
+      logger.success(`Note saved: "${text}"`);
     });
 
   // status command

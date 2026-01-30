@@ -12,6 +12,7 @@ import { analyzeConversation } from './conversation-analyzer.js';
 import { buildSuggestions } from './feature-suggester.js';
 import { syncSessionToAirtable, retryFailedSyncs } from './storage/airtable.js';
 import { sendSessionReport } from './email/resend.js';
+import { registerSession, unregisterSession, getNote } from './active-session-store.js';
 import type { Session, GitContext, ConversationAnalysis } from './types.js';
 
 let currentSession: {
@@ -40,6 +41,8 @@ export async function startSession(projectPath: string, claudeArgs: string[]): P
     startTime: new Date(),
     branch,
   };
+
+  registerSession(projectPath, currentSession.id, process.pid);
 
   logger.success(`Session started: ${projectName} (${branch})`);
   logger.dim(`Session ID: ${currentSession.id}`);
@@ -128,18 +131,30 @@ export async function endSession(reason: Session['endReason']): Promise<void> {
   // Build feature suggestions
   const suggestions = buildSuggestions(gitContext, conversationAnalysis);
 
-  // Prompt user
-  const promptCtx: PromptContext = {
-    projectName: currentSession.projectName,
-    branch: gitContext.branch,
-    durationMs,
-    startTime: currentSession.startTime.toISOString(),
-    gitContext,
-    conversationAnalysis,
-    suggestions,
-  };
+  // Check for a mid-session note
+  const note = getNote(currentSession.projectPath);
 
-  const { feature } = await promptForFeature(promptCtx);
+  let feature: string;
+
+  if (reason === 'idle' && note) {
+    // Idle with a note: use it directly, skip the prompt
+    logger.info(`Using note as feature: "${note}"`);
+    feature = note;
+  } else {
+    // Prompt user (pass note as default if it exists)
+    const promptCtx: PromptContext = {
+      projectName: currentSession.projectName,
+      branch: gitContext.branch,
+      durationMs,
+      startTime: currentSession.startTime.toISOString(),
+      gitContext,
+      conversationAnalysis,
+      suggestions,
+      defaultNote: note ?? undefined,
+    };
+
+    ({ feature } = await promptForFeature(promptCtx));
+  }
 
   // Find current PR URL
   const currentPR = gitContext.openPRs.find(pr => pr.branch === gitContext.branch);
@@ -177,8 +192,8 @@ export async function endSession(reason: Session['endReason']): Promise<void> {
     }
   }
 
-  // Send email if enabled
-  if (config.features.emailReports && config.email) {
+  // Send email if per-session emails enabled
+  if (config.features.emailReports && config.features.perSessionEmails && config.email) {
     try {
       await sendSessionReport(session);
       logger.success('Session report emailed');
@@ -187,6 +202,7 @@ export async function endSession(reason: Session['endReason']): Promise<void> {
     }
   }
 
+  unregisterSession(currentSession.projectPath);
   currentSession = null;
   isEnding = false;
 }
