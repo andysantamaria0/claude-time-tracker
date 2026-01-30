@@ -87,8 +87,12 @@ export function createCli(): Command {
         logger.warn('Airtable sync is not enabled. Run `claude-tracker init` first.');
         return;
       }
-      await retryFailedSyncs();
-      logger.success('Sync complete');
+      const { synced, failed } = await retryFailedSyncs();
+      if (failed === 0) {
+        logger.success(`Sync complete: ${synced} session(s) synced`);
+      } else {
+        logger.warn(`Sync finished: ${synced} synced, ${failed} failed`);
+      }
     });
 
   // report command
@@ -225,7 +229,7 @@ export function createCli(): Command {
     .description('Enable weekly summary emails')
     .action(() => {
       const config = loadConfig();
-      if (!config.features.emailReports || !config.email) {
+      if (!config.email) {
         logger.error('Email not configured. Run `claude-tracker init` first.');
         process.exit(1);
       }
@@ -301,7 +305,7 @@ export function createCli(): Command {
     .description('Send a test weekly summary immediately')
     .action(async () => {
       const config = loadConfig();
-      if (!config.features.emailReports || !config.email) {
+      if (!config.email) {
         logger.error('Email not configured. Run `claude-tracker init` first.');
         process.exit(1);
       }

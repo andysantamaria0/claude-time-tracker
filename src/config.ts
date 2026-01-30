@@ -9,6 +9,7 @@ export interface TrackerConfig {
   features: {
     airtableSync: boolean;
     emailReports: boolean;
+    perSessionEmails: boolean;
     conversationAnalysis: boolean;
   };
   airtable?: {
@@ -42,6 +43,7 @@ const DEFAULT_CONFIG: TrackerConfig = {
   features: {
     airtableSync: false,
     emailReports: false,
+    perSessionEmails: true,
     conversationAnalysis: false,
   },
 };
@@ -68,7 +70,11 @@ export function loadConfig(): TrackerConfig {
   try {
     const raw = readFileSync(CONFIG_FILE, 'utf-8');
     const parsed = JSON.parse(raw) as Partial<TrackerConfig>;
-    return { ...DEFAULT_CONFIG, ...parsed };
+    return {
+      ...DEFAULT_CONFIG,
+      ...parsed,
+      features: { ...DEFAULT_CONFIG.features, ...parsed.features },
+    };
   } catch (err) {
     logger.warn('Failed to read config, using defaults');
     return { ...DEFAULT_CONFIG };

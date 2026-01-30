@@ -38,7 +38,7 @@ export async function syncSessionToAirtable(session: Session): Promise<void> {
     'End Reason': session.endReason,
     'Commits': session.commits.join('\n'),
     'Changed Files': session.changedFiles.join('\n'),
-    'PR URL': session.prUrl || '',
+    'PR URL': session.prUrl || undefined,
     'Summary': session.conversationSummary || '',
   });
 
@@ -46,25 +46,32 @@ export async function syncSessionToAirtable(session: Session): Promise<void> {
   logger.debug(`Session synced to Airtable: ${record.getId()}`);
 }
 
-export async function retryFailedSyncs(): Promise<void> {
+export async function retryFailedSyncs(): Promise<{ synced: number; failed: number }> {
   const config = loadConfig();
   if (!config.features.airtableSync || !config.airtable) {
-    return;
+    return { synced: 0, failed: 0 };
   }
 
   const unsynced = getUnsyncedSessions();
-  if (unsynced.length === 0) return;
+  if (unsynced.length === 0) return { synced: 0, failed: 0 };
 
   logger.info(`Retrying ${unsynced.length} unsynced session(s)...`);
+
+  let synced = 0;
+  let failed = 0;
 
   for (const session of unsynced) {
     try {
       await syncSessionToAirtable(session);
+      synced++;
       logger.success(`Synced session: ${session.feature || session.id}`);
     } catch (err) {
-      logger.debug(`Failed to sync session ${session.id}: ${err}`);
+      failed++;
+      logger.warn(`Failed to sync session ${session.id}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
+
+  return { synced, failed };
 }
 
 export async function testAirtableConnection(
